@@ -22,13 +22,15 @@
 #          | Linux Mint 17 ( Qiana | Rebecca | Rafaela | Rosa )
 #          | Linux Mint 18 ( Sarah | Serena | Sonya | Sylvia )
 #          | Linux Mint 19 ( Tara | Tessa | Tina | Tricia )
+#          | Linux Mint 20 ( Ulyana )
 #          | Linux Mint 4 ( Debbie )
 #          | MX Linux 18 ( Continuum )
+#          | Progress-Linux ( Engywuck )
 #          | Parrot OS
 #          | Elementary OS
 #
-# Version    | 4.6.3
-# Controller | 5.12.72-0bbca4291e
+# Version    | 4.7.6
+# Controller | 5.13.32-3e11950f9b
 # Author     | Glenn Rietveld
 # Email      | glennrietveld8@hotmail.nl
 # Website    | https://GlennR.nl
@@ -40,6 +42,7 @@
 ###################################################################################################################################################################################################
 
 RESET='\033[0m'
+YELLOW='\033[1;33m'
 #GRAY='\033[0;37m'
 #WHITE='\033[1;37m'
 GRAY_R='\033[39m'
@@ -101,9 +104,9 @@ abort() {
   dpkg -l &> "/tmp/EUS/support/dpkg-list"
   echo "${architecture}" &> "/tmp/EUS/support/architecture"
   # shellcheck disable=SC2129
-  sed -n '3p' "$0" &>> "/tmp/EUS/support/script"
-  grep "# Version" "$0" | head -n1 &>> "/tmp/EUS/support/script"
-  grep "# Controller" "$0" | head -n1 &>> "/tmp/EUS/support/script"
+  sed -n '3p' "${script_location}" &>> "/tmp/EUS/support/script"
+  grep "# Version" "${script_location}" | head -n1 &>> "/tmp/EUS/support/script"
+  grep "# Controller" "${script_location}" | head -n1 &>> "/tmp/EUS/support/script"
   if dpkg -l tar 2> /dev/null | grep -iq "^ii\\|^hi"; then
     tar -cvf /tmp/eus_support.tar.gz "/tmp/EUS" "${eus_dir}" &> /dev/null && support_file="/tmp/eus_support.tar.gz"
   elif dpkg -l zip 2> /dev/null | grep -iq "^ii\\|^hi"; then
@@ -140,17 +143,19 @@ script_logo() {
   /_______  /______/ /_______  /  |___|___|  /____  > |__| (____  /____/____/
           \/                 \/            \/     \/            \/           
 
-    Easy UniFi Network Controller Install Script
 EOF
 }
 
 start_script() {
+  script_location="${BASH_SOURCE[0]}"
+  script_name=$(basename ${BASH_SOURCE[0]})
   mkdir -p "${eus_dir}/logs" 2> /dev/null
   mkdir -p /tmp/EUS/ 2> /dev/null
   mkdir -p /tmp/EUS/upgrade/ 2> /dev/null
   mkdir -p /tmp/EUS/dpkg/ 2> /dev/null
   header
   script_logo
+  echo -e "    Easy UniFi Network Controller Install Script"
   echo -e "\\n${WHITE_R}#${RESET} Starting the Easy UniFi Install Script.."
   echo -e "${WHITE_R}#${RESET} Thank you for using my Easy UniFi Install Script :-)\\n\\n"
   sleep 4
@@ -162,39 +167,43 @@ help_script() {
   echo -e "    Easy UniFi Network Controller Install Script assistance\\n"
   echo -e "
   Script usage:
-  bash $0 [options]
+  bash ${script_name} [options]
   
   Script options:
-  --skip                   Skip any kind of manual input.
-  --custom-url [argument]  Manually provide a UniFi Network Controller download URL.
-                           example:
-                           --custom-url https://dl.ui.com/unifi/5.12.66/unifi_sysvinit_all.deb
-  --help                   Shows this information :)\\n\\n
+    --skip                      Skip any kind of manual input.
+    --skip-install-haveged      Skip installation of haveged.
+    --add-repository            Add UniFi Repository if --skip is used.
+    --custom-url [argument]     Manually provide a UniFi Network Controller download URL.
+                                example:
+                                --custom-url https://dl.ui.com/unifi/5.12.72/unifi_sysvinit_all.deb
+    --help                      Shows this information :)\\n\\n
   Script options for Let's Encrypt:
-  --v6                     Run the script in IPv6 mode instead of IPv4.
-  --email [argument]       Specify what email address you want to use
-                           for renewal notifications.
-                           example:
-                           --email glenn@glennr.nl
-  --fqdn [argument]        Specify what domain name ( FQDN ) you want to use, you
-                           can specify multiple domain names with : as seperator, see
-                           the example below:
-                           --fqdn glennr.nl:www.glennr.nl
-  --server-ip [argument]   Specify the server IP address manually.
-                           example:
-                           --server-ip 1.1.1.1
-  --retry [argument]       Retry the unattended script if it aborts for X times.
-                           example:
-                           --retry 5
-  --external-dns           Use external DNS server to resolve the FQDN.
-  --force-renew            Force renew the certificates.
-  --dns-challenge          Run the script in DNS mode instead of HTTP.\\n\\n"
+    --v6                        Run the script in IPv6 mode instead of IPv4.
+    --email [argument]          Specify what email address you want to use
+                                for renewal notifications.
+                                example:
+                                --email glenn@glennr.nl
+    --fqdn [argument]           Specify what domain name ( FQDN ) you want to use, you
+                                can specify multiple domain names with : as seperator, see
+                                the example below:
+                                --fqdn glennr.nl:www.glennr.nl
+    --server-ip [argument]      Specify the server IP address manually.
+                                example:
+                                --server-ip 1.1.1.1
+    --retry [argument]          Retry the unattended script if it aborts for X times.
+                                example:
+                                --retry 5
+    --external-dns [argument]   Use external DNS server to resolve the FQDN.
+                                example:
+                                --external-dns 1.1.1.1
+    --force-renew               Force renew the certificates.
+    --dns-challenge             Run the script in DNS mode instead of HTTP.\\n\\n"
   exit 0
 }
 
 rm --force /tmp/EUS/script_options &> /dev/null
 rm --force /tmp/EUS/le_script_options &> /dev/null
-script_option_list=(-skip --skip --custom-url --v6 --ipv6 --email --mail --fqdn --domain-name --server-ip --server-address --external-dns --force-renew --renew --dns --dns-challenge --retry --help)
+script_option_list=(-skip --skip --skip-install-haveged --custom-url --help --v6 --ipv6 --email --mail --fqdn --domain-name --server-ip --server-address --retry --external-dns --force-renew --renew --dns --dns-challenge)
 
 while [ -n "$1" ]; do
   case "$1" in
@@ -202,8 +211,14 @@ while [ -n "$1" ]; do
        script_option_skip=true
        echo "--skip" &>> /tmp/EUS/script_options
        echo "--skip" &>> /tmp/EUS/le_script_options;;
+  --skip-install-haveged)
+       script_option_skip_install_haveged=true
+       echo "--skip-install-haveged" &>> /tmp/EUS/script_options;;
+  --add-repository)
+       script_option_add_repository=true
+       echo "--add-repository" &>> /tmp/EUS/script_options;;
   --custom-url)
-       if echo "${2}" | grep -iq "http[s]://.*ubnt.com/unifi/.*.deb\\|http[s]://.*ui.com/unifi/.*.deb"; then custom_url_down_provided=true; custom_download_url="${2}"; fi
+       if [[ -n "${2}" ]]; then if echo "${2}" | grep -ioq ".deb"; then custom_url_down_provided=true; custom_download_url="${2}"; else header_red; echo -e "${RED}#${RESET} Provided URL does not have the 'deb' extension...\\n"; help_script; fi; fi
        script_option_custom_url=true
        if [[ "${custom_url_down_provided}" == 'true' ]]; then echo "--custom-url ${2}" &>> /tmp/EUS/script_options; else echo "--custom-url" &>> /tmp/EUS/script_options; fi;;
   --help)
@@ -229,7 +244,7 @@ while [ -n "$1" ]; do
        echo -e "--retry ${2}" &>> /tmp/EUS/le_script_options
        shift;;
   --external-dns)
-       echo -e "--external-dns" &>> /tmp/EUS/le_script_options;;
+       if [[ "${script_option_list[@]}" =~ "${2}" ]]; then echo -e "--external-dns" &>> /tmp/EUS/le_script_options; else echo -e "--external-dns ${2}" &>> /tmp/EUS/le_script_options; fi;;
   --force-renew | --renew)
        echo -e "--force-renew" &>> /tmp/EUS/le_script_options;;
   --dns | --dns-challenge)
@@ -257,7 +272,7 @@ if apt-key list 2>/dev/null | grep mongodb -B1 | grep -iq "expired:"; then
 fi
 
 # shellcheck disable=SC2016
-grep -io '${eus_dir}/logs/.*log' "$0" | grep -v 'awk' | awk '!a[$0]++' &> /tmp/EUS/log_files
+grep -io '${eus_dir}/logs/.*log' "${script_location}" | grep -v 'awk' | awk '!a[$0]++' &> /tmp/EUS/log_files
 while read -r log_file; do
   if [[ -f "${log_file}" ]]; then
     log_file_size=$(stat -c%s "${log_file}")
@@ -315,11 +330,19 @@ run_apt_get_update() {
     #sleep 2
     apt-get update &> /tmp/EUS/keys/apt_update
     if grep -qo 'NO_PUBKEY.*' /tmp/EUS/keys/apt_update; then
-      if [[ "${hide_apt_update}" == 'true' ]]; then hide_apt_update=true; fi
+      if [[ "${hide_apt_update}" != 'true' ]]; then hide_apt_update=true; fi
       run_apt_get_update
     fi
   fi
 }
+
+# Check if system runs Unifi OS
+if dpkg -l unifi-core 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
+  unifi_core_system=true
+  if [[ -f /etc/motd && -s /etc/motd ]]; then unifi_core_device=$(grep -io "welcome.*" /etc/motd | sed -e 's/Welcome //g' -e 's/to //g' -e 's/the //g' -e 's/!//g'); fi
+  if [[ -f /usr/lib/version && -s /usr/lib/version && -z "${unifi_core_device}" ]]; then unifi_core_device=$(cat /usr/lib/version | cut -d'.' -f1); fi
+  if [[ -z "${unifi_core_device}" ]]; then unifi_core_device='Unknown device'; fi
+fi
 
 cancel_script() {
   if [[ "${set_lc_all}" == 'true' ]]; then unset LC_ALL &> /dev/null; fi
@@ -335,11 +358,7 @@ http_proxy_found() {
 
 remove_yourself() {
   if [[ "${set_lc_all}" == 'true' ]]; then unset LC_ALL &> /dev/null; fi
-  if [[ "${delete_script}" == 'true' || "${script_option_skip}" == 'true' ]]; then
-    if [[ -e "$0" ]]; then
-      rm --force "$0" 2> /dev/null
-    fi
-  fi
+  if [[ "${delete_script}" == 'true' || "${script_option_skip}" == 'true' ]]; then if [[ -e "${script_location}" ]]; then rm --force "${script_location}" 2> /dev/null; fi; fi
 }
 
 christmass_new_year() {
@@ -401,30 +420,18 @@ get_distro() {
     os_codename=$(lsb_release -cs | tr '[:upper:]' '[:lower:]')
     if [[ "${os_codename}" == 'n/a' ]]; then
       os_codename=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
-      if [[ "${os_codename}" == 'parrot' ]]; then
-        os_codename='buster'
-      fi
     fi
-    if [[ "${os_codename}" =~ (hera|juno) ]]; then os_codename=bionic; fi
-    if [[ "${os_codename}" == 'loki' ]]; then os_codename=xenial; fi
-    if [[ "${os_codename}" == 'freya' ]]; then os_codename=trusty; fi
-    if [[ "${os_codename}" == 'luna' ]]; then os_codename=precise; fi
-    if [[ "${os_codename}" == 'debbie' ]]; then os_codename=buster; fi
   fi
-  if [[ "${os_codename}" =~ (precise|maya) ]]; then
-    repo_codename=precise
-  elif [[ "${os_codename}" =~ (trusty|qiana|rebecca|rafaela|rosa) ]]; then
-    repo_codename=trusty
-  elif [[ "${os_codename}" =~ (xenial|sarah|serena|sonya|sylvia) ]]; then
-    repo_codename=xenial
-  elif [[ "${os_codename}" =~ (bionic|tara|tessa|tina|tricia) ]]; then
-    repo_codename=bionic
-  elif [[ "${os_codename}" =~ (stretch|continuum) ]]; then
-    repo_codename=stretch
-  elif [[ "${os_codename}" =~ (buster|debbie) ]]; then
-    repo_codename=buster
+  if [[ "${os_codename}" =~ (precise|maya|luna) ]]; then repo_codename=precise; os_codename=precise
+  elif [[ "${os_codename}" =~ (trusty|qiana|rebecca|rafaela|rosa|freya) ]]; then repo_codename=trusty; os_codename=trusty
+  elif [[ "${os_codename}" =~ (xenial|sarah|serena|sonya|sylvia|loki) ]]; then repo_codename=xenial; os_codename=xenial
+  elif [[ "${os_codename}" =~ (bionic|tara|tessa|tina|tricia|hera|juno) ]]; then repo_codename=bionic; os_codename=bionic
+  elif [[ "${os_codename}" =~ (focal|ulyana) ]]; then repo_codename=focal; os_codename=focal
+  elif [[ "${os_codename}" =~ (stretch|continuum) ]]; then repo_codename=stretch; os_codename=stretch
+  elif [[ "${os_codename}" =~ (buster|debbie|parrot|engywuck-backports|engywuck) ]]; then repo_codename=buster; os_codename=buster
   else
     repo_codename="${os_codename}"
+    os_codename="${os_codename}"
   fi
 }
 get_distro
@@ -490,7 +497,7 @@ if dpkg -l | grep "unifi " | grep -q "^ii\\|^hi"; then
   read -rp $'\033[39m#\033[0m Would you like to download and run my Easy Update Script? (Y/n) ' yes_no
   case "$yes_no" in
       [Yy]*|"")
-        rm --force "$0" 2> /dev/null
+        rm --force "${script_location}" 2> /dev/null
         wget -q "${wget_progress[@]}" https://get.glennr.nl/unifi/update/unifi-update.sh && bash unifi-update.sh; exit 0;;
       [Nn]*) exit 0;;
   esac
@@ -563,9 +570,9 @@ fi
 
 script_version_check() {
   if dpkg -l curl 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
-    version=$(grep -i "# Controller" "$0" | head -n 1 | awk '{print $4}' | cut -d'-' -f1)
+    version=$(grep -i "# Controller" "${script_location}" | head -n 1 | awk '{print $4}' | cut -d'-' -f1)
     script_online_version_dots=$(curl "https://get.glennr.nl/unifi/install/unifi-${version}.sh" -s | grep "# Version" | head -n 1 | awk '{print $4}')
-    script_local_version_dots=$(grep "# Version" "$0" | head -n 1 | awk '{print $4}')
+    script_local_version_dots=$(grep "# Version" "${script_location}" | head -n 1 | awk '{print $4}')
     script_online_version="${script_online_version_dots//./}"
     script_local_version="${script_local_version_dots//./}"
     # Script version check.
@@ -574,7 +581,7 @@ script_version_check() {
       echo -e "${WHITE_R}#${RESET} You're currently running script version ${script_local_version_dots} while ${script_online_version_dots} is the latest!"
       echo -e "${WHITE_R}#${RESET} Downloading and executing version ${script_online_version_dots} of the Easy Installation Script..\\n\\n"
       sleep 3
-      rm --force "$0" 2> /dev/null
+      rm --force "${script_location}" 2> /dev/null
       rm --force "unifi-${version}.sh" 2> /dev/null
       wget -q "${wget_progress[@]}" "https://get.glennr.nl/unifi/install/unifi-${version}.sh" && bash "unifi-${version}.sh" "${script_options[@]}"; exit 0
     fi
@@ -608,36 +615,39 @@ custom_url_question() {
 }
 
 custom_url_upgrade_check() {
-  custom_controller_version=$(echo "${custom_download_url}" | grep -io "5.*" | cut -d'-' -f1 | cut -d'/' -f1)
+  custom_controller_version=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'-' -f1 | cut -d'/' -f1)
   echo -e "\\n${WHITE_R}----${RESET}\\n"
   echo -e "${YELLOW}#${RESET} The script will now install controller version: ${custom_controller_version}!" && sleep 3
   custom_url_check=success
 }
 
 custom_url_download_check() {
-  if echo "${custom_download_url}" | grep -iq "http[s]://.*ubnt.com/unifi/.*.deb\\|http[s]://.*ui.com/unifi/.*.deb"; then
-    mkdir -p /tmp/EUS/downloads &> /dev/null
-    unifi_temp="$(mktemp --tmpdir=/tmp/EUS/downloads unifi_sysvinit_all_XXXXX.deb)"
-    header
-    echo -e "${WHITE_R}#${RESET} Downloading the controller release..."
-    if ! wget "${wget_progress[@]}" -qO "$unifi_temp" "${custom_download_url}"; then
-      header_red
-      echo -e "\\n${WHITE_R}#${RESET} The URL you provided cannot be downloaded.. Please provide a working URL."
-      sleep 3
-      custom_url_question
-    else
-      echo -e "\\n${GREEN}#${RESET} Successfully downloaded the controller release!"
+  mkdir -p /tmp/EUS/downloads &> /dev/null
+  unifi_temp="$(mktemp --tmpdir=/tmp/EUS/downloads unifi_sysvinit_all_XXXXX.deb)"
+  header
+  echo -e "${WHITE_R}#${RESET} Downloading the controller release..."
+  if ! wget -q -O "$unifi_temp" "${custom_download_url}"; then
+    header_red
+    echo -e "${WHITE_R}#${RESET} The URL you provided cannot be downloaded.. Please provide a working URL."
+    sleep 3
+    custom_url_question
+  else
+    dpkg -I "${unifi_temp}" | awk '{print tolower($0)}' &> "${unifi_temp}.tmp"
+    package_maintainer=$(awk '/maintainer/{print$2}' "${unifi_temp}.tmp")
+    rm --force "${unifi_temp}.tmp" &> /dev/null
+    if [[ "${package_maintainer}" =~ (unifi|ubiquiti) ]]; then
+      echo -e "${GREEN}#${RESET} Successfully downloaded the controller release!"
       sleep 2
       custom_url_upgrade_check
+    else
+      header_red
+      echo -e "${WHITE_R}#${RESET} You did not provide a UniFi Network controller that is maintained by Ubiquiti ( UniFi )..."
+      read -rp $'\033[39m#\033[0m Do you want to provide the script with anothe URL? (Y/n) ' yes_no
+      case "$yes_no" in
+          [Yy]*|"") custom_url_question;;
+          [Nn]*) ;;
+      esac
     fi
-  else
-    header_red
-    echo -e "${WHITE_R}#${RESET} You did not provide a controller download URL from Ubiquiti's download servers."
-    read -rp $'\033[39m#\033[0m Do you want to provide the script with another URL? (Y/n) ' yes_no
-    case "$yes_no" in
-        [Yy]*|"") custom_url_question;;
-        [Nn]*) ;;
-    esac
   fi
 }
 
@@ -894,24 +904,28 @@ if ! dpkg -l netcat 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
   fi
   netcat_installed=true
 fi
-if ! dpkg -l haveged 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
-  if [[ "${installing_required_package}" != 'yes' ]]; then install_required_packages; fi
-  echo -e "${WHITE_R}#${RESET} Installing haveged..."
-  if ! DEBIAN_FRONTEND='noninteractive' apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install haveged &>> "${eus_dir}/logs/required.log"; then
-    echo -e "${RED}#${RESET} Failed to install haveged in the first run...\\n"
-    if [[ "${repo_codename}" =~ (precise|trusty|xenial|bionic|cosmic|disco|eoan|focal) ]]; then
-      if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://[A-Za-z0-9]*.archive.ubuntu.com/ubuntu/ ${repo_codename} universe") -eq 0 ]]; then
-        echo -e "deb http://nl.archive.ubuntu.com/ubuntu/ ${repo_codename} universe" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
-      fi
-    elif [[ "${repo_codename}" =~ (jessie|stretch|buster|bullseye) ]]; then
-      if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://ftp.[A-Za-z0-9]*.debian.org/debian ${repo_codename} main") -eq 0 ]]; then
-        echo -e "deb http://ftp.nl.debian.org/debian ${repo_codename} main" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
-      fi
+if [[ "${unifi_core_system}" != 'true' && "${script_option_skip_install_haveged}" != 'true' ]]; then
+  if ! dpkg -l haveged 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
+    if [[ "${installing_required_package}" != 'yes' ]]; then
+      install_required_packages
     fi
-    required_package="haveged"
-    apt_get_install_package
-  else
-    echo -e "${GREEN}#${RESET} Successfully installed haveged! \\n" && sleep 2
+    echo -e "${WHITE_R}#${RESET} Installing haveged..."
+    if ! DEBIAN_FRONTEND='noninteractive' apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install haveged &>> "${eus_dir}/logs/required.log"; then
+      echo -e "${RED}#${RESET} Failed to install haveged in the first run...\\n"
+      if [[ "${repo_codename}" =~ (precise|trusty|xenial|bionic|cosmic|disco|eoan|focal) ]]; then
+        if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://[A-Za-z0-9]*.archive.ubuntu.com/ubuntu/ ${repo_codename} universe") -eq 0 ]]; then
+          echo -e "deb http://nl.archive.ubuntu.com/ubuntu/ ${repo_codename} universe" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
+        fi
+      elif [[ "${repo_codename}" =~ (jessie|stretch|buster|bullseye) ]]; then
+        if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://ftp.[A-Za-z0-9]*.debian.org/debian ${repo_codename} main") -eq 0 ]]; then
+          echo -e "deb http://ftp.nl.debian.org/debian ${repo_codename} main" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
+        fi
+      fi
+      required_package="haveged"
+      apt_get_install_package
+    else
+      echo -e "${GREEN}#${RESET} Successfully installed haveged! \\n" && sleep 2
+    fi
   fi
 fi
 if ! dpkg -l psmisc 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
@@ -1026,6 +1040,50 @@ if [[ "${fqdn_specified}" == 'true' ]]; then
     fi
   fi
 fi
+if ! dpkg -l adduser 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
+  if [[ "${installing_required_package}" != 'yes' ]]; then
+    install_required_packages
+  fi
+  echo -e "${WHITE_R}#${RESET} Installing adduser..."
+  if ! DEBIAN_FRONTEND='noninteractive' apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install adduser &>> "${eus_dir}/logs/required.log"; then
+    echo -e "${RED}#${RESET} Failed to install adduser in the first run...\\n"
+    if [[ "${repo_codename}" =~ (precise|trusty|xenial|bionic|cosmic|disco|eoan|focal) ]]; then
+      if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://[A-Za-z0-9]*.archive.ubuntu.com/ubuntu/ ${repo_codename} universe") -eq 0 ]]; then
+        echo -e "deb http://nl.archive.ubuntu.com/ubuntu/ ${repo_codename} universe" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
+      fi
+    elif [[ "${repo_codename}" =~ (jessie|stretch|buster|bullseye) ]]; then
+      if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://ftp.[A-Za-z0-9]*.debian.org/debian ${repo_codename} main") -eq 0 ]]; then
+        echo -e "deb http://ftp.nl.debian.org/debian ${repo_codename} main" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
+      fi
+    fi
+    required_package="adduser"
+    apt_get_install_package
+  else
+    echo -e "${GREEN}#${RESET} Successfully installed adduser! \\n" && sleep 2
+  fi
+fi
+if ! dpkg -l logrotate 2> /dev/null | awk '{print $1}' | grep -iq "^ii\\|^hi"; then
+  if [[ "${installing_required_package}" != 'yes' ]]; then
+    install_required_packages
+  fi
+  echo -e "${WHITE_R}#${RESET} Installing logrotate..."
+  if ! DEBIAN_FRONTEND='noninteractive' apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install logrotate &>> "${eus_dir}/logs/required.log"; then
+    echo -e "${RED}#${RESET} Failed to install logrotate in the first run...\\n"
+    if [[ "${repo_codename}" =~ (precise|trusty|xenial|bionic|cosmic|disco|eoan|focal) ]]; then
+      if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://[A-Za-z0-9]*.archive.ubuntu.com/ubuntu/ ${repo_codename} universe") -eq 0 ]]; then
+        echo -e "deb http://nl.archive.ubuntu.com/ubuntu/ ${repo_codename} universe" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
+      fi
+    elif [[ "${repo_codename}" =~ (jessie|stretch|buster|bullseye) ]]; then
+      if [[ $(find /etc/apt/ -name "*.list" -type f -print0 | xargs -0 cat | grep -c "^deb http[s]*://ftp.[A-Za-z0-9]*.debian.org/debian ${repo_codename} main") -eq 0 ]]; then
+        echo -e "deb http://ftp.nl.debian.org/debian ${repo_codename} main" >>/etc/apt/sources.list.d/glennr-install-script.list || abort
+      fi
+    fi
+    required_package="logrotate"
+    apt_get_install_package
+  else
+    echo -e "${GREEN}#${RESET} Successfully installed logrotate! \\n" && sleep 2
+  fi
+fi
 if [[ "${curl_missing}" == 'true' ]]; then script_version_check; fi
 
 ###################################################################################################################################################################################################
@@ -1041,28 +1099,35 @@ first_digits_mongodb_version_installed=$(echo "${mongodb_version_installed}" | c
 second_digits_mongodb_version_installed=$(echo "${mongodb_version_installed}" | cut -d'.' -f2)
 #
 if [[ "${custom_url_check}" == 'success' ]]; then
-  unifi_clean=$(echo "${custom_download_url}" | grep -io "5.*" | cut -d'-' -f1 | cut -d'/' -f1)
-  unifi_secret=$(echo "${custom_download_url}" | grep -io "5.*" | cut -d'/' -f1)
+  unifi_clean=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'-' -f1 | cut -d'/' -f1)
+  unifi_secret=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'/' -f1)
 else
-  unifi_clean=$(grep -i "# Controller" "$0" | head -n 1 | awk '{print $4}' | cut -d'-' -f1)
-  unifi_secret=$(grep -i "# Controller" "$0" | head -n 1 | awk '{print $4}')
+  unifi_clean=$(grep -i "# Controller" "${script_location}" | head -n 1 | awk '{print $4}' | cut -d'-' -f1)
+  unifi_secret=$(grep -i "# Controller" "${script_location}" | head -n 1 | awk '{print $4}')
 fi
 first_digits_unifi=$(echo "${unifi_clean}" | cut -d'.' -f1)
 second_digits_unifi=$(echo "${unifi_clean}" | cut -d'.' -f2)
 third_digits_unifi=$(echo "${unifi_clean}" | cut -d'.' -f3)
 #
-if [[ "${first_digits_unifi}" -ge '5' && "${second_digits_unifi}" -ge '13' && "${third_digits_unifi}" -ge '10' ]]; then
-  mongo_version_supported="3.6.999"
-  first_digits_mongodb_version_supported="3"
-  second_digits_mongodb_version_supported="6"
-  mongo_version_supported_2="4.0"
-  mongo_version_supported_3="36"
-else
+if [[ "${first_digits_unifi}" -le '5' && "${second_digits_unifi}" -le '13' ]]; then
   mongo_version_supported="3.4.999"
   first_digits_mongodb_version_supported="3"
   second_digits_mongodb_version_supported="4"
   mongo_version_supported_2="3.6"
   mongo_version_supported_3="34"
+  if [[ "${first_digits_unifi}" == '5' && "${second_digits_unifi}" == '13' && "${third_digits_unifi}" -gt '10' ]]; then
+    mongo_version_supported="3.6.999"
+    first_digits_mongodb_version_supported="3"
+    second_digits_mongodb_version_supported="6"
+   mongo_version_supported_2="4.0"
+    mongo_version_supported_3="36"
+  fi
+else
+  mongo_version_supported="3.6.999"
+  first_digits_mongodb_version_supported="3"
+  second_digits_mongodb_version_supported="6"
+  mongo_version_supported_2="4.0"
+  mongo_version_supported_3="36"
 fi
 #
 system_memory=$(awk '/MemTotal/ {printf( "%.0f\n", $2 / 1024 / 1024)}' /proc/meminfo)
@@ -1691,7 +1756,7 @@ if ! dpkg -l | grep "^ii\\|^hi" | grep -iq "mongodb-server\\|mongodb-org-server"
     echo -e "${RED}#${RESET} The script is unable to grab your OS ( or does not support it )"
     echo "${architecture}"
     echo "${os_codename}"
-    abort
+    if [[ "${architecture}" != "armhf" ]]; then abort; fi
   fi
 else
   echo -e "${GREEN}#${RESET} MongoDB is already installed! \\n"
@@ -2004,30 +2069,18 @@ if [[ "${change_unifi_ports}" == 'true' ]]; then
   fi
 fi
 
-# Check if MongoDB service is enabled
+# Check if service is enabled
 if ! [[ "${os_codename}" =~ (precise|maya|trusty|qiana|rebecca|rafaela|rosa) ]]; then
-  if [ "${mongodb_version::2}" -ge '26' ]; then
-    SERVICE_MONGODB=$(systemctl is-enabled mongod)
-    if [ "$SERVICE_MONGODB" = 'disabled' ]; then
-      systemctl enable mongod 2>/dev/null || { echo -e "${RED}#${RESET} Failed to enable service | MongoDB"; sleep 3; }
-    fi
-  else
-    SERVICE_MONGODB=$(systemctl is-enabled mongodb)
-    if [ "$SERVICE_MONGODB" = 'disabled' ]; then
-      systemctl enable mongodb 2>/dev/null || { echo -e "${RED}#${RESET} Failed to enable service | MongoDB"; sleep 3; }
-    fi
-  fi
-  # Check if UniFi service is enabled
-  SERVICE_UNIFI=$(systemctl is-enabled unifi)
-  if [ "$SERVICE_UNIFI" = 'disabled' ]; then
-    systemctl enable unifi 2>/dev/null || { echo -e "${RED}#${RESET} Failed to enable service | UniFi"; sleep 3; }
+  if service --status-all | grep -ioq unifi; then
+    SERVICE_UNIFI=$(systemctl is-enabled unifi)
+    if [[ "$SERVICE_UNIFI" = 'disabled' ]]; then systemctl enable unifi 2>/dev/null || { echo -e "${RED}#${RESET} Failed to enable service | UniFi"; sleep 3; }; fi
   fi
 fi
 
-if [[ "${script_option_skip}" != 'true' ]]; then
+if [[ "${script_option_skip}" != 'true' || "${script_option_add_repository}" == 'true' ]] && [[ "${architecture}" != +(arm64|armhf) ]]; then
   header
   echo -e "${WHITE_R}#${RESET} Would you like to update the UniFi Network Controller via APT?"
-  read -rp $'\033[39m#\033[0m Do you want the script to add the source list file? (Y/n) ' yes_no
+  if [[ "${script_option_skip}" != 'true' ]]; then read -rp $'\033[39m#\033[0m Do you want the script to add the source list file? (Y/n) ' yes_no; fi
   case "$yes_no" in
       [Yy]*|"")
         header
@@ -2035,12 +2088,14 @@ if [[ "${script_option_skip}" != 'true' ]]; then
         sleep 3
         sed -i '/unifi/d' /etc/apt/sources.list
         rm --force /etc/apt/sources.list.d/100-ubnt-unifi.list 2> /dev/null
-        if ! wget -qO /etc/apt/trusted.gpg.d/unifi-repo.gpg https://dl.ui.com/unifi/unifi-repo.gpg; then
-          echo "06E85760C0A52C50" &>> /tmp/EUS/keys/missing_keys
-        fi
-        echo "deb https://www.ui.com/downloads/unifi/debian unifi-${first_digits_unifi}.${second_digits_unifi} ubiquiti" &> /etc/apt/sources.list.d/100-ubnt-unifi.list && echo -e "${GREEN}#${RESET} Successfully added UniFi Network Controller source list! \\n"
+        if ! wget -qO /etc/apt/trusted.gpg.d/unifi-repo.gpg https://dl.ui.com/unifi/unifi-repo.gpg; then echo "06E85760C0A52C50" &>> /tmp/EUS/keys/missing_keys; fi
+        echo "deb https://www.ui.com/downloads/unifi/debian unifi-${first_digits_unifi}.${second_digits_unifi} ubiquiti" &> /etc/apt/sources.list.d/100-ubnt-unifi.list && repository_added=true && echo -e "${GREEN}#${RESET} Successfully added UniFi Network Controller source list! \\n"
         hide_apt_update=true
-        run_apt_get_update;;
+        run_apt_get_update
+        echo -ne "\r${WHITE_R}#${RESET} Checking if repository is valid..." && sleep 1
+        if grep -ioq "unifi-${first_digits_unifi}.${second_digits_unifi} Release' does not" /tmp/EUS/keys/apt_update; then if [[ "${repository_added}" == 'true' ]]; then rm -f /etc/apt/sources.list.d/100-ubnt-unifi.list &> /dev/null && repository_removed=true; fi; fi
+        if [[ "${repository_removed}" == 'true' ]]; then echo -ne "\r${RED}#${RESET} The added UniFi Repository is not valid/used, the repository list will be removed."; else echo -ne "\r${GREEN}#${RESET} The added UniFi Repository is valid!"; fi
+        sleep 3;;
       [Nn]*) ;;
   esac
 fi
