@@ -1484,18 +1484,18 @@ fi
 #                                                                                                                                                                                                 #
 ###################################################################################################################################################################################################
 
-script_removal() {
-  header
-  read -rp $'\033[39m#\033[0m Do you want to keep the script on your system after completion? (Y/n) ' yes_no
-  case "$yes_no" in
-      [Yy]*|"") ;;
-      [Nn]*) delete_script=true;;
-  esac
-}
+#script_removal() {
+#  header
+#  read -rp $'\033[39m#\033[0m Do you want to keep the script on your system after completion? (Y/n) ' yes_no
+#  case "$yes_no" in
+#      [Yy]*|"") ;;
+#      [Nn]*) delete_script=true;;
+#  esac
+#}
 
-if [[ "${script_option_skip}" != 'true' ]]; then
-  script_removal
-fi
+#if [[ "${script_option_skip}" != 'true' ]]; then
+#  script_removal
+#fi
 
 ###################################################################################################################################################################################################
 #                                                                                                                                                                                                 #
@@ -2285,12 +2285,12 @@ if dpkg -l | grep "unifi " | grep -q "^ii\\|^hi"; then
   fi
   echo -e "\\n"
   author
-  remove_yourself
+#  remove_yourself
 else
   header_red
   echo -e "\\n${RED}#${RESET} Failed to successfully install UniFi Network Controller ${unifi_clean}"
   echo -e "${RED}#${RESET} Please contact Glenn R. (AmazedMender16) on the Community Forums!${RESET}\\n\\n"
-  remove_yourself
+#  remove_yourself
 fi
 
 
