@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Most of this script was written by Glenn Rietveld and SmokinCrop. I just took the good parts of both their scripts and put them together.
-# Please give them the credit, not me.
-
 # UniFi Network Controller Easy Installation Script.
 # OS       | List of supported Distributions/OS
 #
@@ -29,7 +26,7 @@
 #          | Parrot OS
 #          | Elementary OS
 #
-# Version    | 4.7.6
+# Version    | 4.8.1
 # Controller | 5.13.32-3e11950f9b
 # Author     | Glenn Rietveld
 # Email      | glennrietveld8@hotmail.nl
@@ -615,9 +612,9 @@ custom_url_question() {
 }
 
 custom_url_upgrade_check() {
-  custom_controller_version=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'-' -f1 | cut -d'/' -f1)
+  #custom_controller_version=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'-' -f1 | cut -d'/' -f1)
   echo -e "\\n${WHITE_R}----${RESET}\\n"
-  echo -e "${YELLOW}#${RESET} The script will now install controller version: ${custom_controller_version}!" && sleep 3
+  echo -e "${YELLOW}#${RESET} The script will now install controller version: ${unifi_clean}!" && sleep 3
   custom_url_check=success
 }
 
@@ -634,6 +631,7 @@ custom_url_download_check() {
   else
     dpkg -I "${unifi_temp}" | awk '{print tolower($0)}' &> "${unifi_temp}.tmp"
     package_maintainer=$(awk '/maintainer/{print$2}' "${unifi_temp}.tmp")
+    unifi_clean=$(awk '/version/{print$2}' "${unifi_temp}.tmp" | grep -io "5.*\\|6.*" | cut -d'-' -f1 | cut -d'/' -f1)
     rm --force "${unifi_temp}.tmp" &> /dev/null
     if [[ "${package_maintainer}" =~ (unifi|ubiquiti) ]]; then
       echo -e "${GREEN}#${RESET} Successfully downloaded the controller release!"
@@ -1099,7 +1097,7 @@ first_digits_mongodb_version_installed=$(echo "${mongodb_version_installed}" | c
 second_digits_mongodb_version_installed=$(echo "${mongodb_version_installed}" | cut -d'.' -f2)
 #
 if [[ "${custom_url_check}" == 'success' ]]; then
-  unifi_clean=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'-' -f1 | cut -d'/' -f1)
+  if [[ -z "${unifi_clean}" ]]; then unifi_clean=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'-' -f1 | cut -d'/' -f1); fi
   unifi_secret=$(echo "${custom_download_url}" | grep -io "5.*\\|6.*" | cut -d'/' -f1)
 else
   unifi_clean=$(grep -i "# Controller" "${script_location}" | head -n 1 | awk '{print $4}' | cut -d'-' -f1)
@@ -1411,7 +1409,7 @@ if [[ "${port_8080_in_use}" == 'true' || "${port_8443_in_use}" == 'true' ]]; the
   while read -r service_pid; do service_on_pid=$(head -n1 "/proc/${service_pid}/comm" 2> /dev/null); ps_service_on_pid=$(ps aux | grep -e "${service_pid}" | grep -v " grep -e ${service_pid}" | awk '{print $1}' | head -n1 2> /dev/null); echo -e "${RED}-${RESET} ${service_on_pid} ( ${ps_service_on_pid} ) | PID: ${service_pid}"; done < /tmp/EUS/services/pid_list
   echo ""
   if [[ "${script_option_skip}" != 'true' ]]; then
-    read -rp $'\033[39m#\033[0m Do you want to let the script change the default UniFi Network Controller port(s)? (Y/n) ' yes_no
+    read -rp $'\033[39m#\033[0m Do you want the script to find other port(s) for the Unifi Network Controller? (Y/n) ' yes_no
   else
     echo -e "${WHITE_R}#${RESET} Script will change the default UniFi Controller Ports.."
     sleep 2
@@ -1607,15 +1605,16 @@ if [[ "${os_codename}" =~ (disco|eoan|focal) && "${architecture}" =~ (amd64|arm6
   echo -e "${WHITE_R}#${RESET} Installing a required package..\\n" && sleep 2
   libssl_temp="$(mktemp --tmpdir=/tmp libssl1.0.2_XXXXX.deb)" || abort
   if [[ "${architecture}" == "amd64" ]]; then
+    libssl_url=$(curl -s http://security.ubuntu.com/ubuntu/pool/main/o/openssl1.0/ | grep -io "libssl1.0.0.*amd64.deb" | sed '/u5_/d' | cut -d'"' -f1 | tail -n1)
     echo -e "${WHITE_R}#${RESET} Downloading libssl..."
-    wget "${wget_progress[@]}" -qO "$libssl_temp" 'http://security.ubuntu.com/ubuntu/pool/main/o/openssl1.0/libssl1.0.0_1.0.2n-1ubuntu5.3_amd64.deb' || abort
+    if wget "${wget_progress[@]}" -qO "$libssl_temp" "http://security.ubuntu.com/ubuntu/pool/main/o/openssl1.0/${libssl_url}" &>> "${eus_dir}/logs/libssl.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded libssl!"; else echo -e "${RED}#${RESET} Failed to download libssl..."; abort; fi
   fi
   if [[ "${architecture}" == "arm64" ]]; then
     echo -e "${WHITE_R}#${RESET} Downloading libssl..."
-    wget "${wget_progress[@]}" -qO "$libssl_temp" 'https://launchpad.net/ubuntu/+source/openssl1.0/1.0.2n-1ubuntu5/+build/14503127/+files/libssl1.0.0_1.0.2n-1ubuntu5_arm64.deb' || abort
+    if wget "${wget_progress[@]}" -qO "$libssl_temp" 'https://launchpad.net/ubuntu/+source/openssl1.0/1.0.2n-1ubuntu5/+build/14503127/+files/libssl1.0.0_1.0.2n-1ubuntu5_arm64.deb' &>> "${eus_dir}/logs/libssl.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded libssl!"; else echo -e "${RED}#${RESET} Failed to download libssl..."; abort; fi
   fi
   echo -e "\\n${WHITE_R}#${RESET} Installing libssl..."
-  if dpkg -i "$libssl_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed libssl! \\n"; else echo -e "${RED}#${RESET} Failed to install libssl...\\n"; abort; fi
+  if dpkg -i "$libssl_temp" &>> "${eus_dir}/logs/libssl.log"; then echo -e "${GREEN}#${RESET} Successfully installed libssl! \\n"; else echo -e "${RED}#${RESET} Failed to install libssl...\\n"; abort; fi
   rm --force "$libssl_temp" 2> /dev/null
 fi
 
@@ -1662,7 +1661,8 @@ if ! dpkg -l | grep "^ii\\|^hi" | grep -iq "mongodb-server\\|mongodb-org-server"
     libssl_temp="$(mktemp --tmpdir=/tmp libssl1.0.2_XXXXX.deb)" || abort
     libssl_url=$(curl -s http://ftp.nl.debian.org/debian/pool/main/o/openssl1.0/ | grep -io "libssl1.0.2.*i386.deb" | tail -n1)
     echo -e "${WHITE_R}#${RESET} Downloading libssl..."
-    wget "${wget_progress[@]}" -qO "$libssl_temp" "http://ftp.nl.debian.org/debian/pool/main/o/openssl1.0/${libssl_url}" || abort
+    if wget "${wget_progress[@]}" -qO "$libssl_temp" "http://ftp.nl.debian.org/debian/pool/main/o/openssl1.0/${libssl_url}" &>> "${eus_dir}/logs/libssl.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded libssl!"; else echo -e "${RED}#${RESET} Failed to download libssl..."; abort; fi
+    echo -e "\\n${WHITE_R}#${RESET} Installing libssl..."
     if dpkg -i "$libssl_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed libssl! \\n"; else echo -e "${RED}#${RESET} Failed to install libssl! \\n"; abort; fi
     rm --force "$libssl_temp" 2> /dev/null
     if [[ "${os_codename}" =~ (disco|eoan|focal) ]]; then
@@ -1673,20 +1673,29 @@ if ! dpkg -l | grep "^ii\\|^hi" | grep -iq "mongodb-server\\|mongodb-org-server"
       fi
     fi
     if DEBIAN_FRONTEND='noninteractive' apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' install libboost-chrono1.62.0 libboost-filesystem1.62.0 libboost-program-options1.62.0 libboost-regex1.62.0 libboost-system1.62.0 libboost-thread1.62.0 libgoogle-perftools4 libpcap0.8 libpcrecpp0v5 libsnappy1v5 libstemmer0d libyaml-cpp0.5v5 &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed required MongoDB packages! \\n"; else echo -e "${RED}#${RESET} Failed install required MongoDB packages... \\n"; abort; fi
-    mongo_tools_temp="$(mktemp --tmpdir=/tmp mongo_tools-3.2.22_XXXXX.deb)" || abort
-    echo -e "${WHITE_R}#${RESET} Downloading mongo-tools version 3.2.11..."
-    wget "${wget_progress[@]}" -qO "$mongo_tools_temp" 'http://ftp.nl.debian.org/debian/pool/main/m/mongo-tools/mongo-tools_3.2.11-1+b2_i386.deb' || abort
-    if dpkg -i "$mongo_tools_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed mongo-tools version 3.2.11! \\n"; else echo -e "${RED}#${RESET} Failed to install mongo-tools version 3.2.11...\\n"; abort; fi
+    mongo_tools_url=$(curl -s http://ftp.nl.debian.org/debian/pool/main/m/mongo-tools/ | grep -io "mongo-tools_3.2.*i386.deb" | sed 's/&#43;/+/g' | tail -n1)
+	mongo_tools_version=$(echo "${mongo_tools_url}" | cut -d'+' -f1 | cut -d'_' -f2)
+    mongo_tools_temp="$(mktemp --tmpdir=/tmp mongo_tools-${mongo_tools_version}_XXXXX.deb)" || abort
+    echo -e "${WHITE_R}#${RESET} Downloading mongo-tools version ${mongo_tools_version}..."
+    if wget "${wget_progress[@]}" -qO "$mongo_tools_temp" "http://ftp.nl.debian.org/debian/pool/main/m/mongo-tools/${mongo_tools_url}" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded mongo-tools ${mongo_tools_version}!"; else echo -e "${RED}#${RESET} Failed to download mongo-tools ${mongo_tools_version}..."; abort; fi
+    echo -e "\\n${WHITE_R}#${RESET} Installing mongo-tools ${mongo_tools_version}..."
+    if dpkg -i "$mongo_tools_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed mongo-tools version ${mongo_tools_version}! \\n"; else echo -e "${RED}#${RESET} Failed to install mongo-tools version ${mongo_tools_version}...\\n"; abort; fi
     rm --force "$mongo_tools_temp" 2> /dev/null
-    mongodb_clients_temp="$(mktemp --tmpdir=/tmp mongodb_clients-3.2.22_XXXXX.deb)" || abort
-    echo -e "${WHITE_R}#${RESET} Downloading mongodb-clients version 3.2.11..."
-    wget "${wget_progress[@]}" -qO "$mongodb_clients_temp" 'http://ftp.nl.debian.org/debian/pool/main/m/mongodb/mongodb-clients_3.2.11-2+deb9u1_i386.deb' || abort
-    if dpkg -i "$mongodb_clients_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed mongodb-clients version 3.2.11! \\n"; else echo -e "${RED}#${RESET} Failed to install mongodb-clients version 3.2.11...\\n"; abort; fi
+    mongodb_clients_url=$(curl -s http://ftp.nl.debian.org/debian/pool/main/m/mongodb/ | grep -io "mongodb-clients_3.2.*i386.deb" | sed 's/&#43;/+/g' | tail -n1)
+	mongodb_clients_version=$(echo "${mongodb_clients_url}" | cut -d'+' -f1 | cut -d'_' -f2)
+    mongodb_clients_temp="$(mktemp --tmpdir=/tmp mongodb_clients-${mongodb_clients_version}_XXXXX.deb)" || abort
+    echo -e "${WHITE_R}#${RESET} Downloading mongodb-clients version ${mongodb_clients_version}..."
+    if wget "${wget_progress[@]}" -qO "$mongodb_clients_temp" "http://ftp.nl.debian.org/debian/pool/main/m/mongodb/${mongodb_clients_url}" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded mongodb-clients ${mongodb_clients_version}!"; else echo -e "${RED}#${RESET} Failed to download mongodb-clients ${mongodb_clients_version}..."; abort; fi
+    echo -e "\\n${WHITE_R}#${RESET} Installing mongodb-clients ${mongodb_clients_version}..."
+    if dpkg -i "$mongodb_clients_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed mongodb-clients version ${mongodb_clients_version}! \\n"; else echo -e "${RED}#${RESET} Failed to install mongodb-clients version ${mongodb_clients_version}...\\n"; abort; fi
     rm --force "$mongodb_clients_temp" 2> /dev/null
-    mongodb_server_temp="$(mktemp --tmpdir=/tmp mongodb_clients-3.2.22_XXXXX.deb)" || abort
-    echo -e "${WHITE_R}#${RESET} Downloading mongodb-server version 3.2.11..."
-    wget "${wget_progress[@]}" -qO "$mongodb_server_temp" 'http://ftp.nl.debian.org/debian/pool/main/m/mongodb/mongodb-server_3.2.11-2+deb9u1_i386.deb' || abort
-    if dpkg -i "$mongodb_server_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed mongodb-server version 3.2.11! \\n"; else echo -e "${RED}#${RESET} Failed to install mongodb-server version 3.2.11...\\n"; abort; fi
+    mongodb_server_url=$(curl -s http://ftp.nl.debian.org/debian/pool/main/m/mongodb/ | grep -io "mongodb-server_3.2.*i386.deb" | sed 's/&#43;/+/g' | tail -n1)
+	mongodb_server_version=$(echo "${mongodb_server_url}" | cut -d'+' -f1 | cut -d'_' -f2)
+    mongodb_server_temp="$(mktemp --tmpdir=/tmp mongodb_clients-${mongodb_server_version}_XXXXX.deb)" || abort
+    echo -e "${WHITE_R}#${RESET} Downloading mongodb-server version ${mongodb_server_version}..."
+    if wget "${wget_progress[@]}" -qO "$mongodb_server_temp" "http://ftp.nl.debian.org/debian/pool/main/m/mongodb/${mongodb_server_url}" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded mongodb-server ${mongodb_server_version}!"; else echo -e "${RED}#${RESET} Failed to download mongodb-server ${mongodb_server_version}..."; abort; fi
+    echo -e "\\n${WHITE_R}#${RESET} Installing mongodb-server ${mongodb_server_version}..."
+    if dpkg -i "$mongodb_server_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed mongodb-server version ${mongodb_server_version}! \\n"; else echo -e "${RED}#${RESET} Failed to install mongodb-server version ${mongodb_server_version}...\\n"; abort; fi
     rm --force "$mongodb_server_temp" 2> /dev/null
   elif [[ "${os_codename}" =~ (precise|maya) && "${architecture}" =~ (amd64|arm64) ]]; then
     mongodb_34_key
@@ -1728,12 +1737,13 @@ if ! dpkg -l | grep "^ii\\|^hi" | grep -iq "mongodb-server\\|mongodb-org-server"
       echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/${mongo_version_supported::3} multiverse" &> "/etc/apt/sources.list.d/mongodb-org-${mongo_version_supported::3}.list" || abort
       libssl_temp="$(mktemp --tmpdir=/tmp libssl1.0.2_XXXXX.deb)" || abort
       if [[ "${architecture}" == "amd64" ]]; then
+        libssl_url=$(curl -s http://security.ubuntu.com/ubuntu/pool/main/o/openssl1.0/ | grep -io "libssl1.0.0.*amd64.deb" | sed '/u5_/d' | cut -d'"' -f1 | tail -n1)
         echo -e "${WHITE_R}#${RESET} Downloading libssl..."
-        wget "${wget_progress[@]}" -qO "$libssl_temp" 'http://security.ubuntu.com/ubuntu/pool/main/o/openssl1.0/libssl1.0.0_1.0.2n-1ubuntu5.3_amd64.deb' || abort
+        if wget "${wget_progress[@]}" -qO "$libssl_temp" "http://security.ubuntu.com/ubuntu/pool/main/o/openssl1.0/${libssl_url}" &>> "${eus_dir}/logs/libssl.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded libssl!"; else echo -e "${RED}#${RESET} Failed to download libssl..."; abort; fi
       fi
       if [[ "${architecture}" == "arm64" ]]; then
         echo -e "${WHITE_R}#${RESET} Downloading libssl..."
-        wget "${wget_progress[@]}" -qO "$libssl_temp" 'https://launchpad.net/ubuntu/+source/openssl1.0/1.0.2n-1ubuntu5/+build/14503127/+files/libssl1.0.0_1.0.2n-1ubuntu5_arm64.deb' || abort
+        if wget "${wget_progress[@]}" -qO "$libssl_temp" 'https://launchpad.net/ubuntu/+source/openssl1.0/1.0.2n-1ubuntu5/+build/14503127/+files/libssl1.0.0_1.0.2n-1ubuntu5_arm64.deb' &>> "${eus_dir}/logs/libssl.log"; then echo -e "${GREEN}#${RESET} Successfully downloaded libssl!"; else echo -e "${RED}#${RESET} Failed to download libssl..."; abort; fi
       fi
       echo -e "\\n${WHITE_R}#${RESET} Installing libssl..."
       if dpkg -i "$libssl_temp" &>> "${eus_dir}/logs/mongodb_install.log"; then echo -e "${GREEN}#${RESET} Successfully installed libssl! \\n"; else echo -e "${RED}#${RESET} Failed to install libssl...\\n"; abort; fi
